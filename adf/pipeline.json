@@ -1,0 +1,94 @@
+{
+  "name": "PL_Lakehouse_PublicAPI",
+  "properties": {
+    "description": "Ingest a public API, then run the Databricks Bronze/Silver/Gold notebooks.",
+    "activities": [
+      {
+        "name": "Get_API_Data",
+        "type": "WebActivity",
+        "typeProperties": {
+          "url": "https://jsonplaceholder.typicode.com/users",
+          "method": "GET"
+        }
+      },
+      {
+        "name": "Copy_To_Landing",
+        "type": "Copy",
+        "typeProperties": {
+          "source": {
+            "type": "RestSource"
+          },
+          "sink": {
+            "type": "DelimitedTextSink",
+            "storeSettings": {
+              "type": "AzureBlobFSWriteSettings"
+            }
+          }
+        },
+        "dependsOn": [
+          {
+            "activity": "Get_API_Data",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "NB_01_Bronze",
+        "type": "DatabricksNotebook",
+        "typeProperties": {
+          "notebookPath": "/Workspace/lakehouse/01_bronze"
+        },
+        "dependsOn": [
+          {
+            "activity": "Copy_To_Landing",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "NB_02_Silver",
+        "type": "DatabricksNotebook",
+        "typeProperties": {
+          "notebookPath": "/Workspace/lakehouse/02_silver"
+        },
+        "dependsOn": [
+          {
+            "activity": "NB_01_Bronze",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "NB_03_Gold",
+        "type": "DatabricksNotebook",
+        "typeProperties": {
+          "notebookPath": "/Workspace/lakehouse/03_gold"
+        },
+        "dependsOn": [
+          {
+            "activity": "NB_02_Silver",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      }
+    ],
+    "triggers": [
+      {
+        "name": "Daily_0600",
+        "type": "ScheduleTrigger",
+        "recurrence": {
+          "frequency": "Day",
+          "interval": 1
+        }
+      }
+    ]
+  }
+}
